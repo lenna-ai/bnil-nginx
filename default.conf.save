@@ -1,0 +1,132 @@
+server {
+    listen 80 default_server;
+    server_name _;
+    root /var/www/sites;
+    index index.php index.html index.htm;
+
+    if ($request_method ~* "(GET|POST)") {
+
+      add_header Access-Control-Allow-Origin *;
+    }
+    
+    location /auth/public {
+	#add_header Access-Control-Allow-Origin *;
+        alias /var/www/sites/auth/public;
+        try_files $uri $uri/ @auth_public;
+    }
+    location @auth_public {
+        rewrite /auth/public/(.*)$ /auth/public/index.php?/$1 last;
+    }
+
+    #----- Omni Messaging -----#
+    location /app/public {
+        alias /var/www/sites/app/public;
+        try_files $uri $uri/ @app_public;
+    }
+    location @app_public {
+        rewrite /app/public/(.*)$ /app/public/index.php?/$1 last;
+    }
+
+    location /webpage {
+        alias /var/www/sites/webpage;
+        try_files $uri $uri/ @webpage_public;
+    }
+    location @webpage_public {
+        rewrite /webpage/(.*)$ /webpage/index.php?/$1 last;
+    }
+
+    #----- Bot Studio -----#
+    location /botstudio/public {
+        alias /var/www/sites/botstudio/public;
+        try_files $uri $uri/ @bot_studio_public;
+    }
+
+    location @bot_studio_public {
+        rewrite /botstudio/public/(.*)$ /botstudio/public/index.php?/$1 last;
+    }
+
+    #----- Backend -----#
+    location /backend {
+        alias /var/www/sites/backend;
+        try_files $uri $uri/ @backend_public;
+    }
+    location @backend_public {
+        rewrite /backend/(.*)$ /backend/index.php?/$1 last;
+    }
+
+    location /cms {
+        alias /var/www/sites/cms;
+        try_files $uri $uri/ @cms;
+    }
+    location @cms {
+        rewrite /cms/(.*)$ /cms/index.php?/$1 last;
+    }
+
+    location /socket.io {
+        proxy_pass http://127.0.0.1:6001; #could be localhost if Echo and NginX are on the same box
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+    } 
+
+    location ~ \.php$ {
+#	include snippets/fastcgi-php.conf;
+        try_files $uri /index.php =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+	fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location / {
+	add_header Access-Control-Allow-Origin *;
+        try_files $uri/ $uri /index.html?$query_string;
+    }
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location ~ \.(markdown|md|twig|yaml|yml|ini|log|conf|key)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+        error_page 403 =404 /;
+    }
+
+    location ~* /.+\.(markdown|md|twig|yaml|yml|ini|log|conf|key)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+        error_page 403 =404 / ;
+    }
+
+    location ~* (Gruntfile|package)\.(js|json|jsonc)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ \.(ttf|ttc|otf|eot|woff|woff2|font.css|css|js|gif|png|jpeg|jpg|svg|svgz|ico|webp|mp3)$ {
+        #add_header Access-Control-Allow-Origin "*";
+    }
+
+    error_log /var/log/nginx/laravel_error.log;
+    access_log /var/log/nginx/laravel_access.log;
+}
